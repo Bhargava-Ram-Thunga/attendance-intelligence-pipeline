@@ -62,8 +62,6 @@ CELERY_BEAT_SCHEDULE = {
     },
     'dead-letter-retry': {
         'func': 'notifications.recovery.dead_letter_retry',
-        'schedule': crontab(minute=0, hour='*/0'), # This is complex in crontab; usually handled by seconds.
-        # For a 30-min interval in crontab:
         'schedule': crontab(minute='0,30'),
     },
 }
