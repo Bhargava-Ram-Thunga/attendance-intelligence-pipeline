@@ -1,0 +1,87 @@
+from django.db import models
+
+class Tenant(models.Model):
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Tenants"
+
+    def __str__(self):
+        return self.name
+
+class TenantModel(models.Model):
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        db_index=False, # Composite indexes handle the lookups
+        related_name="%(class)s_set"
+    )
+
+    class Meta:
+        abstract = True
+
+class Program(TenantModel):
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['tenant', 'name'], name='idx_program_tenant_name'),
+        ]
+
+class Course(TenantModel):
+    name = models.CharField(max_length=255)
+    program = models.ForeignKey(Program, on_delete=models.PROTECT)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['tenant', 'program', 'name'], name='idx_course_tenant_prog_name'),
+        ]
+
+class Student(TenantModel):
+    user_id = models.UUIDField() # Representing User system link
+    program = models.ForeignKey(Program, on_delete=models.PROTECT)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['tenant', 'program'], name='idx_student_tenant_prog'),
+        ]
+        unique_together = ('tenant', 'user_id')
+
+class AttendanceRecord(TenantModel):
+    class Status(models.TextChoices):
+        PRESENT = "PRESENT", "Present"
+        ABSENT = "ABSENT", "Absent"
+        LATE = "LATE", "Late"
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    date = models.DateField()
+    period = models.PositiveIntegerField()
+    status = models.CharField(max_length=10, choices=Status.choices)
+
+    class Meta:
+        unique_together = ('tenant', 'student', 'course', 'date', 'period')
+        indexes = [
+            models.Index(fields=['tenant', 'student', 'date'], name='idx_att_rec_tenant_std_date'),
+            models.Index(fields=['tenant', 'student', 'course'], name='idx_att_rec_tenant_std_crs'),
+        ]
+
+class AttendancePercentage(TenantModel):
+    class RiskStatus(models.TextChoices):
+        SAFE = "SAFE", "Safe"
+        WARNING = "WARNING", "Warning"
+        CRITICAL = "CRITICAL", "Critical"
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    risk_status = models.CharField(max_length=10, choices=RiskStatus.choices)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('tenant', 'student', 'course')
+        indexes = [
+            models.Index(fields=['tenant', 'student', 'course'], name='idx_att_pct_tenant_std_crs'),
+        ]
