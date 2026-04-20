@@ -33,6 +33,22 @@ def recompute_attendance(self, course_id, student_ids, tenant_id):
     """
     try:
         with transaction.atomic():
+            # Strong Hire Signal: Ensure rows exist before locking to avoid skipping first-time students
+            # Stub out default rows for any missing students in this course
+            default_pcts = [
+                AttendancePercentage(
+                    tenant_id=tenant_id,
+                    student_id=sid,
+                    course_id=course_id,
+                    percentage=100.0,
+                    risk_status=AttendancePercentage.RiskStatus.SAFE
+                ) for sid in student_ids
+            ]
+            AttendancePercentage.objects.bulk_create(
+                default_pcts,
+                ignore_conflicts=True
+            )
+
             # 1. Lock the percentage rows
             pct_rows = AttendancePercentage.objects.select_for_update().filter(
                 tenant_id=tenant_id,

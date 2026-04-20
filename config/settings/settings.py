@@ -51,15 +51,20 @@ CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 
+from celery.schedules import crontab
+
 # Celery Beat Schedule (Code-based to avoid DatabaseScheduler startup failure)
 CELERY_BEAT_SCHEDULE = {
     'nightly-attendance-digest': {
         'func': 'attendance.tasks.nightly_digest',
-        'schedule': 60 * 60 * 24, # Daily
+        # 11:00 PM IST is 17:30 UTC.
+        'schedule': crontab(hour=17, minute=30),
     },
     'dead-letter-retry': {
         'func': 'notifications.recovery.dead_letter_retry',
-        'schedule': 30 * 60, # Every 30 mins
+        'schedule': crontab(minute=0, hour='*/0'), # This is complex in crontab; usually handled by seconds.
+        # For a 30-min interval in crontab:
+        'schedule': crontab(minute='0,30'),
     },
 }
 
