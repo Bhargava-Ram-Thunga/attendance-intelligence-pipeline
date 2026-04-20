@@ -27,6 +27,7 @@ class Program(TenantModel):
 
     class Meta:
         indexes = [
+            # Query: List programs for a specific tenant by name
             models.Index(fields=['tenant', 'name'], name='idx_program_tenant_name'),
         ]
 
@@ -36,6 +37,7 @@ class Course(TenantModel):
 
     class Meta:
         indexes = [
+            # Query: List courses for a tenant within a specific program
             models.Index(fields=['tenant', 'program', 'name'], name='idx_course_tenant_prog_name'),
         ]
 
@@ -45,9 +47,41 @@ class Student(TenantModel):
 
     class Meta:
         indexes = [
+            # Query: List all students for a tenant in a program
             models.Index(fields=['tenant', 'program'], name='idx_student_tenant_prog'),
         ]
         unique_together = ('tenant', 'user_id')
+
+class Parent(TenantModel):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="parents")
+    user_id = models.UUIDField()
+
+    class Meta:
+        indexes = [
+            # Query: Find parent of a specific student within a tenant
+            models.Index(fields=['tenant', 'student'], name='idx_parent_tenant_std'),
+        ]
+
+class Counselor(TenantModel):
+    user_id = models.UUIDField()
+
+    class Meta:
+        indexes = [
+            # Query: Find counselor by user_id within a tenant
+            models.Index(fields=['tenant', 'user_id'], name='idx_counselor_tenant_user'),
+        ]
+
+class StudentCounselorAssignment(TenantModel):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    counselor = models.ForeignKey(Counselor, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('tenant', 'student', 'counselor', 'course')
+        indexes = [
+            # Query: Find all counselors for a student in a specific course
+            models.Index(fields=['tenant', 'student', 'course'], name='idx_sca_tenant_std_crs'),
+        ]
 
 class AttendanceRecord(TenantModel):
     class Status(models.TextChoices):
@@ -64,7 +98,9 @@ class AttendanceRecord(TenantModel):
     class Meta:
         unique_together = ('tenant', 'student', 'course', 'date', 'period')
         indexes = [
+            # Query: Faculty bulk-mark lookup for students on a specific date
             models.Index(fields=['tenant', 'student', 'date'], name='idx_att_rec_tenant_std_date'),
+            # Query: Aggregate attendance for a student in a specific course
             models.Index(fields=['tenant', 'student', 'course'], name='idx_att_rec_tenant_std_crs'),
         ]
 
@@ -83,5 +119,6 @@ class AttendancePercentage(TenantModel):
     class Meta:
         unique_together = ('tenant', 'student', 'course')
         indexes = [
+            # Query: Target for select_for_update during recomputation
             models.Index(fields=['tenant', 'student', 'course'], name='idx_att_pct_tenant_std_crs'),
         ]
