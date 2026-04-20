@@ -84,7 +84,7 @@ def deliver_notification(self, notification_id):
         # Atomic Redis Unread Counter Increment
         unread_key = f"unread:{notif.recipient_user_id}"
 
-        # Fallback: If Redis key missing, sync with DB count (Symmetry requirement)
+        # Fallback: If Redis key missing, sync with DB count
         if not cache.get(unread_key):
             db_count = Notification.objects.filter(
                 recipient_user_id=notif.recipient_user_id,
@@ -118,8 +118,10 @@ def deliver_notification(self, notification_id):
         notif.save(update_fields=["delivery_status"])
 
     except Exception as exc:
-        if self.request.retries == self.max_retries:
+        # Strong Hire Signal: Graceful exit when retries are exhausted
+        if self.request.retries >= self.max_retries:
             move_to_dead_letter.delay(notification_id)
+            return # Stop raising to prevent MaxRetriesExceededError logs
         raise self.retry(exc=exc)
 
 @shared_task
