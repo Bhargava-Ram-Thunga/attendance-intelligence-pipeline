@@ -21,8 +21,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         try:
             # 2. Validate JWT
-            # In production, SECRET_KEY and algorithm would be in settings
-            payload = jwt.decode(token, "secret-key", algorithms=["HS256"])
+            # Use settings.JWT_SECRET for production-grade security
+            from django.conf import settings
+            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
             self.user_id = payload["user_id"]
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             await self.close(code=4001)
