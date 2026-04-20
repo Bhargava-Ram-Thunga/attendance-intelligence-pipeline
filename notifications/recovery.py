@@ -58,8 +58,9 @@ def dead_letter_retry():
     Recover failed notifications from Redis ZSET.
     """
     import redis
-    # Using a raw redis client for ZSET operations
-    r = redis.Redis(host='redis', port=6379, db=0)
+    from django.conf import settings
+    # Use settings.REDIS_URL for consistency across the app
+    r = redis.from_url(settings.REDIS_URL)
     zset_key = "notifications:dead_letter"
 
     now = int(time.time())
